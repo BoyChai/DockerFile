@@ -1,0 +1,36 @@
+FROM alpine:3.17.3
+
+RUN apk add --no-cache --virtual .build-deps \
+        gcc \
+        libc-dev \
+        make \
+        openssl-dev \
+        pcre-dev \
+        zlib-dev \
+        linux-headers \
+        curl \
+        gnupg \
+        libxslt-dev \
+        gd-dev \
+        geoip-dev \
+        git
+
+RUN wget https://nginx.org/download/nginx-1.24.0.tar.gz && tar xvf nginx-1.24.0.tar.gz
+
+RUN git clone https://github.com/arut/nginx-dav-ext-module.git
+
+RUN cd nginx-1.24.0 && ./configure --prefix=/usr/local/nginx --with-http_dav_module --add-module=../nginx-dav-ext-module && make && make install
+
+RUN sed -i -e 's/#charset koi8-r;/charset utf-8;/g' /usr/local/nginx/conf/nginx.conf
+
+RUN sed -i '44,45d' /usr/local/nginx/conf/nginx.conf
+
+RUN mkdir -p /webdav/data
+
+RUN chown -R nobody:nobody /webdav
+
+RUN sed -i '43a root \/webdav\/data;\nautoindex on;\nautoindex_exact_size off;\ndav_methods PUT DELETE MKCOL COPY MOVE;\ncreate_full_put_path on;\ndav_ext_methods PROPFIND OPTIONS;\ndav_access user:rw group:r all:r;' /usr/local/nginx/conf/nginx.conf
+
+CMD /usr/local/nginx/sbin/nginx -g "daemon off;"
+
+EXPOSE 80
